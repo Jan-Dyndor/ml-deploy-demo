@@ -1,0 +1,23 @@
+target: target
+
+selected_features:
+  - 'mean radius'
+  - 'mean texture'
+  - 'mean smoothness'
+  - 'mean compactness'
+  - 'mean concavity'
+  - 'mean concave points', 'mean symmetry',
+  - 'mean fractal dimension'
+  - 'texture error', 'area error',
+  - 'smoothness error'
+  - 'compactness error'
+  - 'concavity error',
+  - 'symmetry error'
+  - 'fractal dimension error', 'worst texture',
+  - 'worst smoothness'
+  - 'worst compactness'
+  - 'worst symmetry',
+  - 'worst fractal dimension'
+
+test_size : 0.2
+random_state: 41
