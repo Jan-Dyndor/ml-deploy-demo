@@ -12,7 +12,9 @@ from services.data_manager import (
     convert_dict_to_pandas_df,
     map_column_names_to_pipeline_requirements,
 )
-from contextlib import asynccontextmanager # allows to load model just once befre application starts
+from contextlib import (
+    asynccontextmanager,
+)  # allows to load model just once befre application starts
 
 logger.remove()  # Better observability for logs! Very important
 logger.add(
@@ -27,25 +29,38 @@ logger.add(
     enqueue=True,
 )
 
+
 @asynccontextmanager
-async def lifespan(app: FastAPI): # This allows to stroe model/pipeline inside FastAPI app sso it can be accesible all time
-    with logger.contextualize(request_id="lifespan"): # I created middleware with HTTP requeest to have request_id but
-        logger.info("Starting lifespan")               # load_pipeline() and lifespan happens befre application run and without any HTTP request
-        try:                                            # sologger can not foramt the logs and we need to set them manually
+async def lifespan(
+    app: FastAPI,
+):  # This allows to stroe model/pipeline inside FastAPI app sso it can be accesible all time
+    with logger.contextualize(
+        request_id="lifespan"
+    ):  # I created middleware with HTTP requeest to have request_id but
+        logger.info(
+            "Starting lifespan"
+        )  # load_pipeline() and lifespan happens befre application run and without any HTTP request
+        try:  # sologger can not foramt the logs and we need to set them manually
             app.state.pipeline = load_pipeline()
             yield
         finally:
             app.state.pipeline = None
             logger.info("Ending lifespan")
 
+
 app = FastAPI(lifespan=lifespan)
 
-def get_pipeline(request: Request): # we create function to return the pipleine
+
+def get_pipeline(request: Request):  # we create function to return the pipleine
     pipeline = getattr(request.app.state, "pipeline", None)
     if pipeline is None:
-        raise HTTPException(status_code=503, detail="Pipeline has not beed loaded yet. Please try again later.")
+        raise HTTPException(
+            status_code=503,
+            detail="Pipeline has not beed loaded yet. Please try again later.",
+        )
     # Is someone will call API right after servers start and pipeline is not yet loaded
     return pipeline
+
 
 @app.middleware("http")
 async def log_requests(request: Request, call_next):
@@ -75,7 +90,9 @@ async def health_check() -> dict:
 
 
 @app.post("/predict", response_model=PredictionResults)
-async def predict(input_data: InputSchema, pipeline = Depends(get_pipeline)) -> PredictionResults:
+async def predict(
+    input_data: InputSchema, pipeline=Depends(get_pipeline)
+) -> PredictionResults:
     input_dict = convert_pydantic_model_to_dict(input_data)
     data_df = convert_dict_to_pandas_df(
         input_dict

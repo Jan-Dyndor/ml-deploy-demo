@@ -1,11 +1,15 @@
 from fastapi.testclient import TestClient
 import pytest
-
 from app.main import app
-from app.schemas import InputSchema
 
-client = TestClient(app)
 
+
+# Now we have to keep in mint that we need lifespan to turn on - Because only then we can do some predictions
+# client = TestClient(app) we can not achive this with taht we need something taht is similar to lifespan
+@pytest.fixture()
+def client():
+    with TestClient(app) as client:
+        yield client
 
 @pytest.fixture
 def valid_data_to_predict() -> dict:
@@ -59,13 +63,13 @@ def invalid_data_to_predict() -> dict:
     }
 
 
-def test_health():
+def test_health(client):
     response = client.get("/health")
     assert response.status_code == 200
     assert response.json() == {"status": "ok"}
 
 
-def test_predict_valid_data(valid_data_to_predict):
+def test_predict_valid_data(valid_data_to_predict,client):
     response = client.post("/predict", json=valid_data_to_predict)
     assert response.status_code == 200
     pred = response.json()["prediction"]
@@ -75,6 +79,6 @@ def test_predict_valid_data(valid_data_to_predict):
     assert 0 <= proba <= 1
 
 
-def test_predict_invalid_data(invalid_data_to_predict):
+def test_predict_invalid_data(invalid_data_to_predict,client):
     response = client.post("/predict", json=invalid_data_to_predict)
     assert response.status_code == 422
