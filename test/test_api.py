@@ -6,7 +6,7 @@ from app.main import app
 
 # Now we have to keep in mint that we need lifespan to turn on - Because only then we can do some predictions
 # client = TestClient(app) we can not achive this with taht we need something taht is similar to lifespan
-@pytest.fixture()
+@pytest.fixture(scope="session")
 def client():
     with TestClient(app) as client:
         yield client
