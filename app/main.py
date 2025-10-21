@@ -2,12 +2,18 @@ from loguru import logger
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 from .schemas import PredictionResults, InputSchema, column_map
-from services.load_pipeline import pipeline
+from services.load_pipeline import load_pipeline
 import pandas as pd
 import sys
 from uuid import uuid4
 import time
-from services.data_manager import convert_pydantic_model_to_dict, convert_dict_to_pandas_df,map_column_names_to_pipeline_requrements
+from services.data_manager import (
+    convert_pydantic_model_to_dict,
+    convert_dict_to_pandas_df,
+    map_column_names_to_pipeline_requirements,
+)
+
+logger.remove()  # Better observability for logs! Very important
 
 logger.add(
     sys.stderr,
@@ -34,17 +40,15 @@ async def log_requests(request: Request, call_next):
         try:
             response = await call_next(request)
         except Exception as e:
-            logger.exception(f"Exception occured {request.method} {request.url} - {e}")
+            logger.exception(f"Exception occurred {request.method} {request.url} - {e}")
             response = JSONResponse(
-                status_code=500,
-                content={"detail": "Internal Server Error"}
+                status_code=500, content={"detail": "Internal Server Error"}
             )
         elapsed_time = (time.perf_counter() - start_time) * 1000
         logger.info(
             f"⬅️ Completed {request.method} {request.url.path} "
             f"with status={getattr(response, 'status_code', 'N/A')} "
             f"in {elapsed_time:.2f}ms"
-
         )
         return response
 
@@ -56,10 +60,16 @@ async def health_check() -> dict:
 
 @app.post("/predict", response_model=PredictionResults)
 async def predict(input_data: InputSchema) -> PredictionResults:
+    pipeline = load_pipeline()  # loaded only once and reused by lru_cashe! Nice!
     input_dict = convert_pydantic_model_to_dict(input_data)
-    data_df = convert_dict_to_pandas_df(input_dict) # 1-row DataFrame with correct columns - pipleine was trained on dataframe
-    map_column_names_to_pipeline_requrements(data_df)
-
-    pred = pipeline.predict(data_df)[0]
-    proba = pipeline.predict_proba(data_df)[0, 0]
-    return PredictionResults(prediction=pred, probability=proba)
+    data_df = convert_dict_to_pandas_df(
+        input_dict
+    )  # 1-row DataFrame with correct columns - pipleine was trained on dataframe
+    data_df_mapped = map_column_names_to_pipeline_requirements(data_df)
+    try:
+        pred = pipeline.predict(data_df_mapped)[0]
+        proba = pipeline.predict_proba(data_df_mapped)[0, 1]
+        return PredictionResults(prediction=pred, probability=proba)
+    except Exception as e:
+        logger.exception(f"Exception occurred while predicting values -  {e}")
+        raise

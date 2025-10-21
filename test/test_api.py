@@ -6,6 +6,7 @@ from app.schemas import InputSchema
 
 client = TestClient(app)
 
+
 @pytest.fixture
 def valid_data_to_predict() -> dict:
     return {
@@ -30,6 +31,8 @@ def valid_data_to_predict() -> dict:
         "worst_symmetry": 34.3,
         "worst_fractal_dimension": 45,
     }
+
+
 @pytest.fixture
 def invalid_data_to_predict() -> dict:
     return {
@@ -56,23 +59,22 @@ def invalid_data_to_predict() -> dict:
     }
 
 
-
 def test_health():
     response = client.get("/health")
     assert response.status_code == 200
     assert response.json() == {"status": "ok"}
 
 
-
 def test_predict_valid_data(valid_data_to_predict):
-    response = client.post("/predict",json=valid_data_to_predict)
+    response = client.post("/predict", json=valid_data_to_predict)
     assert response.status_code == 200
     pred = response.json()["prediction"]
     proba = response.json()["probability"]
-    assert pred in {0,1}
+    assert pred in {0, 1}
     assert type(float)
-    assert  0 <= proba <= 1
+    assert 0 <= proba <= 1
+
 
 def test_predict_invalid_data(invalid_data_to_predict):
-    response = client.post("/predict",json=invalid_data_to_predict)
+    response = client.post("/predict", json=invalid_data_to_predict)
     assert response.status_code == 422
