@@ -1,7 +1,7 @@
 import pandas as pd
 from pandas import DataFrame
 from app.schemas import InputSchema, column_map
-from app.main import logger
+from loguru import logger
 
 
 def convert_pydantic_model_to_dict(pydantic_model: InputSchema) -> dict:
