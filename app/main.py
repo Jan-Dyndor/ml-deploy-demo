@@ -1,9 +1,8 @@
 from loguru import logger
 from fastapi import FastAPI, Request, Depends, HTTPException
 from fastapi.responses import JSONResponse
-from .schemas import PredictionResults, InputSchema, column_map
+from .schemas import PredictionResults, InputSchema
 from services.load_pipeline import load_pipeline
-import pandas as pd
 import sys
 from uuid import uuid4
 import time
@@ -83,10 +82,16 @@ async def log_requests(request: Request, call_next):
         )
         return response
 
+@app.get("/")
+async def root():
+    return {"message": "Check API endpoint `/health` to see if pipeline is loaded and redy to predictions!"}
 
 @app.get("/health")
-async def health_check() -> dict:
-    return {"status": "ok"}
+async def health_check(pipeline = Depends(get_pipeline)) -> dict:
+    if pipeline:
+        return {"status": "Ready for predictions"}
+    else:
+        return {"status": "No pipeline loaded yet"}
 
 
 @app.post("/predict", response_model=PredictionResults)
