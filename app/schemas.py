@@ -2,12 +2,21 @@ from pydantic import BaseModel, Field
 
 
 class PredictionResults(BaseModel):
-    prediction: int = Field(description="0 means False and 1 means True")
-    probability: float = Field(description="Probability of True")
+    prediction: int = Field(
+        description="0 means False and 1 means True",
+        ge=0,
+        le=1,
+    )
+    probability: float = Field(
+        description="Probability of True",
+        ge=0.0,
+        le=1.0, # @TODO fix if probability is 0-100
+    )
 
 
 class InputSchema(BaseModel):
     # order of the features has to mach training
+    # @TODO add validation for the values like le and ge
     mean_radius: float
     mean_texture: float
     mean_smoothness: float

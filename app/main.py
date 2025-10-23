@@ -1,19 +1,14 @@
 from loguru import logger
 from fastapi import FastAPI, Request, Depends, HTTPException
 from fastapi.responses import JSONResponse
-from .schemas import PredictionResults, InputSchema
+from .schemas import PredictionResults, InputSchema, column_map
 from services.load_pipeline import load_pipeline
 import sys
 from uuid import uuid4
 import time
-from services.data_manager import (
-    convert_pydantic_model_to_dict,
-    convert_dict_to_pandas_df,
-    map_column_names_to_pipeline_requirements,
-)
-from contextlib import (
-    asynccontextmanager,
-)  # allows to load model just once befre application starts
+import pandas as pd
+# allows loading the model just once before the application starts
+from contextlib import asynccontextmanager
 
 logger.remove()  # Better observability for logs! Very important
 logger.add(
@@ -30,34 +25,34 @@ logger.add(
 
 
 @asynccontextmanager
-async def lifespan(
-    app: FastAPI,
-):  # This allows to stroe model/pipeline inside FastAPI app sso it can be accesible all time
+async def lifespan(_app: FastAPI):
+    # This allows store model/pipeline inside the FastAPI app, so it can be accessible all the time
     with logger.contextualize(
         request_id="lifespan"
-    ):  # I created middleware with HTTP requeest to have request_id but
+    ):  # I created middleware with an HTTP request to have request_id but
         logger.info(
             "Starting lifespan"
-        )  # load_pipeline() and lifespan happens befre application run and without any HTTP request
-        try:  # sologger can not foramt the logs and we need to set them manually
-            app.state.pipeline = load_pipeline()
+        )  # load_pipeline() and lifespan happens before application run and without any HTTP request
+        try:  # so logger cannot format the logs, and we need to set them manually
+            _app.state.pipeline = load_pipeline()
             yield
         finally:
-            app.state.pipeline = None
+            _app.state.pipeline = None
             logger.info("Ending lifespan")
 
 
 app = FastAPI(lifespan=lifespan)
 
 
-def get_pipeline(request: Request):  # we create function to return the pipleine
+def get_pipeline(request: Request):
+    # we create a function to return the pipeline
     pipeline = getattr(request.app.state, "pipeline", None)
     if pipeline is None:
         raise HTTPException(
             status_code=503,
             detail="Pipeline has not beed loaded yet. Please try again later.",
         )
-    # Is someone will call API right after servers start and pipeline is not yet loaded
+    # If someone calls API right after servers start and a pipeline is not yet loaded
     return pipeline
 
 
@@ -70,9 +65,12 @@ async def log_requests(request: Request, call_next):
         try:
             response = await call_next(request)
         except Exception as e:
-            logger.exception(f"Exception occurred {request.method} {request.url} - {e}")
+            logger.exception(
+                f"Exception occurred {request.method} {request.url} - {e}"
+            )
             response = JSONResponse(
-                status_code=500, content={"detail": "Internal Server Error"}
+                status_code=500,
+                content={"detail": "Internal Server Error"},
             )
         elapsed_time = (time.perf_counter() - start_time) * 1000
         logger.info(
@@ -82,31 +80,36 @@ async def log_requests(request: Request, call_next):
         )
         return response
 
+
 @app.get("/")
 async def root():
-    return {"message": "Check API endpoint `/health` to see if pipeline is loaded and redy to predictions!"}
+    return {
+        "message": (
+            "Check API endpoint `/health` to see if pipeline is "
+            "loaded and ready to predictions!"
+        )
+    }
+
 
 @app.get("/health")
-async def health_check(pipeline = Depends(get_pipeline)) -> dict:
-    if pipeline:
-        return {"status": "Ready for predictions"}
-    else:
+async def health_check(pipeline=Depends(get_pipeline)) -> dict:
+    # simple logic flor readability
+    if not pipeline:
         return {"status": "No pipeline loaded yet"}
+    return {"status": "Ready for predictions"}
 
 
 @app.post("/predict", response_model=PredictionResults)
 async def predict(
-    input_data: InputSchema, pipeline=Depends(get_pipeline)
+    input_data: InputSchema,
+    pipeline=Depends(get_pipeline),
 ) -> PredictionResults:
-    input_dict = convert_pydantic_model_to_dict(input_data)
-    data_df = convert_dict_to_pandas_df(
-        input_dict
-    )  # 1-row DataFrame with correct columns - pipleine was trained on dataframe
-    data_df_mapped = map_column_names_to_pipeline_requirements(data_df)
+    data_df = pd.DataFrame([input_data.model_dump()])
+    data_df_mapped = data_df.rename(columns=column_map)
     try:
         pred = pipeline.predict(data_df_mapped)[0]
-        proba = pipeline.predict_proba(data_df_mapped)[0, 1]
-        return PredictionResults(prediction=pred, probability=proba)
+        prob = pipeline.predict_proba(data_df_mapped)[0, 1]
+        return PredictionResults(prediction=pred, probability=prob)
     except Exception as e:
         logger.exception(f"Exception occurred while predicting values -  {e}")
         raise
