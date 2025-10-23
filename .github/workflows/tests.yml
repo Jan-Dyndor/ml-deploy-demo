@@ -36,6 +36,6 @@ jobs:
 
       - name: Run tests
         run: |
-          pytest -q --maxfail=1 --disable-warnings \
-          --cov=app --cov-report=xml
+          pytest -s -v --maxfail=1 --disable-warnings --cov=app --cov-report=xml
+
         
