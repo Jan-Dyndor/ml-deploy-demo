@@ -66,7 +66,7 @@ def invalid_data_to_predict() -> dict:
 def test_health(client):
     response = client.get("/health")
     assert response.status_code == 200
-    assert response.json() == {"status": "ok"}
+    assert response.json() == {"status": "Ready for predictions"}
 
 
 def test_predict_valid_data(valid_data_to_predict, client):
