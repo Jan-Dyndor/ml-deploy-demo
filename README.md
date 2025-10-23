@@ -3,6 +3,7 @@
 A lightweight **FastAPI application** demonstrating how to deploy a simple machine learning pipeline inside a Docker container.  
 The project showcases how to serve ML models or any Python backend service with FastAPI, following clean and reproducible deployment practices.
 
+
 ---
 
 ## 🧱 Project Overview
