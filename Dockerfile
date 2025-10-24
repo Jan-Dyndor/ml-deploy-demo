@@ -1,6 +1,6 @@
 # Build arguments for flexibility
 ARG PYTHON_VERSION=3.11
-ARG APP_PORT=8000
+
 
 # ============================================
 # Stage 1: Builder - Install dependencies
@@ -47,14 +47,15 @@ USER appuser
 # Environment configuration
 ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
-    PORT=${APP_PORT}
+    PORT=${PORT:-8000}
 
 # Expose application port
-EXPOSE ${APP_PORT}
+EXPOSE 8000
 
 # Health check for container orchestration
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
-  CMD python -c "import urllib.request; urllib.request.urlopen('http://localhost:${APP_PORT}/health')" || exit 1
+  CMD python -c "import os, urllib.request; urllib.request.urlopen(f'http://127.0.0.1:{os.getenv(\"PORT\",\"8000\")}/health')" || exit 1
+
 
 # Run FastAPI application
-CMD uvicorn app.main:app --host 0.0.0.0 --port ${APP_PORT}
+CMD ["/bin/sh", "-c", "exec uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000}"]
